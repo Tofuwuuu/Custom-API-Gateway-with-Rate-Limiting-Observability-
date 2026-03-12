@@ -1,0 +1,59 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-me}
+      - API_KEYS=${API_KEYS:-dev-api-key-12345}
+      - ORDERS_BACKENDS=http://orders1:8001,http://orders2:8002
+      - LOCATIONS_BACKENDS=http://locations1:8003,http://locations2:8004
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  orders1:
+    build: ./services/orders
+    environment:
+      - PORT=8001
+    expose:
+      - "8001"
+
+  orders2:
+    build: ./services/orders
+    environment:
+      - PORT=8002
+    expose:
+      - "8002"
+
+  locations1:
+    build: ./services/locations
+    environment:
+      - PORT=8003
+    expose:
+      - "8003"
+
+  locations2:
+    build: ./services/locations
+    environment:
+      - PORT=8004
+    expose:
+      - "8004"
+
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
